@@ -128,8 +128,8 @@ class LoggingConfigurator(object):
     1、日志文件按级分类保存：DEBUG、INFO...
     2、单个日志文件大小限制；
     """
-    DEFAULT_LOG_FORMATE = "[%(asctime)s] [%(threadName)s] [%(filename)s:%(lineno)s] [%(levelname)s] %(message)s"
-    STD_LOG_FORMATE = "%(message)s"
+    LOGGING_FORMATE = "[%(asctime)s] [%(threadName)s] [%(name)s] [%(filename)s:%(lineno)s] [%(levelname)s] %(message)s"
+    STD_LOG_FORMATE = "[%(asctime)s] [%(threadName)s] %(message)s"
 
     # 全局参数
     global_log_prefix = None
@@ -150,7 +150,7 @@ class LoggingConfigurator(object):
     def setup(log_prefix="app",
               log_dir="logs",
               max_day=7,
-              logging_formatter=DEFAULT_LOG_FORMATE,
+              logging_formatter=LOGGING_FORMATE,
               std_log_formatter=STD_LOG_FORMATE,
               log_outputs=('console', 'file', 'stdout', 'stderr'),
               log_level=logging.INFO):
