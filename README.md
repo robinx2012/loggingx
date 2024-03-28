@@ -8,7 +8,7 @@ logging to console, file saving, redirecting stderr, stdout, daily folder splitt
 1. 支持按天分目录保存，按小时分片；
 2. 支持自定义日志名称；
 3. 支持控制台、文件输出；
-4. 支持运行时配置：leve、outputs；
+4. 支持运行时配置：level、outputs；
 5. 支持日志压缩；
 6. 支持日志滚动删除：通过`maxDay`设置最大保留天数；
 7. 支持`stdout`、`stderr`文件保存；
@@ -17,21 +17,24 @@ logging to console, file saving, redirecting stderr, stdout, daily folder splitt
 
 ```python
 """
-logging设置
+初始化日志配置
 :param log_prefix: 日志文件名前缀
 :param log_path: 日志根目录
-:param max_day: 日志保留最大天数
+:param logging_formatter: 日志格式化字符串
 :param log_outputs: 日志输出配置
-    "console": logging打印日志输出到控制台；
-    "file": logging打印日志保存至文件xxx.log；
-    "stdout": print输出至文件xxx.stdout；
-    "stderr": print输出至文件xxx.stderr；
+    "logging_console":  logging打印日志输出到控制台；
+    "logging_file":     logging打印日志保存至文件xxx.log；
+    "std_console":      print打印日志输出到控制台；
+    "std_file":         print输出至文件xxx.stdout或xxx.stderr；
 :return:
 """
-LoggingConfigurator.setup(log_prefix="robin",
-                          log_dir="logs",
-                          max_day=5,
-                          log_outputs=("console", "file", "stdout", "stderr"))
+LoggingConfigurator.setup(log_prefix="robin", log_dir="logs", max_day=5,
+                          log_outputs=(
+                              "logging_console",
+                              "logging_file",
+                              "std_console",
+                              "std_file",
+                          ))
 ```
 
 # TODO:

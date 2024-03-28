@@ -1,50 +1,48 @@
 import logging
-import sys
-import threading
-from time import sleep
 
 from loggingx import LoggingConfigurator
 
 if __name__ == "__main__":
+    #  console
     # LoggingConfigurator.setup(log_prefix="robin", log_dir="logs", max_day=5,
-    #                           log_outputs=("console", "file", "stdout", "stderr"))
-    LoggingConfigurator.setup(log_prefix="robin", log_dir="logs", max_day=5,
-                              log_outputs=("console"))
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
+    #                           log_outputs=(
+    #                               "logging_console",
+    #                               "std_console",
+    #                           ))
 
-
-    # 测试 log level
-    # logger.setLevel(logging.DEBUG)
-    # logger.debug("before...")
-    # logger.setLevel(lxogging.INFO)
-    # logger.debug("after...")
+    # file
+    # LoggingConfigurator.setup(log_prefix="robin", log_dir="logs", max_day=5,
+    #                           log_outputs=(
+    #                               "logging_file",
+    #                               "std_file",
+    #                           ))
     #
-    # logger.setLevel(logging.INFO)
-    # logger.info("before...")
-    # logger.setLevel(logging.DEBUG)
-    # logger.info("after...")
+    # logging
+    # LoggingConfigurator.setup(log_prefix="robin", log_dir="logs", max_day=5,
+    #                           log_outputs=(
+    #                               "logging_console",
+    #                               "logging_file",
+    #                           ))
+    #
+    # std
+    # LoggingConfigurator.setup(log_prefix="robin", log_dir="logs", max_day=5,
+    #                           log_outputs=(
+    #                               "std_console",
+    #                               "std_file",
+    #                           ))
 
-    def run():
-        sleep(10)
-        LoggingConfigurator.set("file", level=logging.DEBUG)
-        LoggingConfigurator.set("stderr", level=logging.DEBUG)
-        LoggingConfigurator.set("stdout", level=logging.DEBUG)
-        sleep(10)
-        LoggingConfigurator.reset("file")
-        LoggingConfigurator.reset("stderr")
-        LoggingConfigurator.reset("stdout")
-        sleep(10)
-        LoggingConfigurator.set("file", level=logging.DEBUG)
-        LoggingConfigurator.set("stderr", level=logging.DEBUG)
-        LoggingConfigurator.set("stdout", level=logging.DEBUG)
+    # all
+    LoggingConfigurator.setup(log_prefix="robin", log_dir="logs", max_day=5,
+                              log_outputs=(
+                                  "logging_console",
+                                  "logging_file",
+                                  "std_console",
+                                  "std_file",
+                              ))
 
-
-    t = threading.Thread(target=run)
-    t.start()
-
-    while True:
-        sleep(0.8)
-        logger.log(logging.WARNING, "God bless you:logging")
-        print("God bless you: stdout", file=sys.stdout)
-        print("God bless you: stderr", file=sys.stderr)
+    # output
+    logging.info("logging.info(): 1")
+    logging.info("logging.info(): 2")
+    print("print(): 1")
+    print("print(): 2")
+    0 / 0

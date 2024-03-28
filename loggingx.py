@@ -114,6 +114,26 @@ class DailyRotatingFileHandler(TimedRotatingFileHandler):
             os.mkdir(dir)
 
 
+class StdStreamInterceptor(StringIO):
+    """
+    标准输出流拦截器
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.__subscribers = {}
+
+    def subscribe(self, name, subscriber):
+        self.__subscribers[name] = subscriber
+
+    def unsubscribe(self, name):
+        self.__subscribers.pop(name)
+
+    def write(self, message):
+        for name, subscriber in self.__subscribers.items():
+            subscriber(message)
+
+
 class LoggingConfigurator(object):
     """
     logging配置
@@ -138,13 +158,16 @@ class LoggingConfigurator(object):
     global_logging_formatter = None
     global_std_log_formatter = None
 
-    global_original_stdout = sys.stdout
-    global_original_stderr = sys.stderr
+    global_original_stdout = None
+    global_original_stderr = None
 
     global_stream_handler = None
     global_logging_file_handler = None
     global_stdout_file_handler = None
     global_stderr_file_handler = None
+
+    global_stdout_interceptor = None
+    global_stderr_interceptor = None
 
     @staticmethod
     def setup(log_prefix="app",
@@ -152,7 +175,7 @@ class LoggingConfigurator(object):
               max_day=7,
               logging_formatter=LOGGING_FORMATE,
               std_log_formatter=STD_LOG_FORMATE,
-              log_outputs=('console', 'file', 'stdout', 'stderr'),
+              log_outputs=('logging_console', 'std_console'),  # logging_console、logging_file、std_console、std_file
               log_level=logging.INFO):
         """
         初始化日志配置
@@ -160,10 +183,10 @@ class LoggingConfigurator(object):
         :param log_path: 日志根目录
         :param logging_formatter: 日志格式化字符串
         :param log_outputs: 日志输出配置
-            "console": logging打印日志输出到控制台；
-            "file": logging打印日志保存至文件xxx.log；
-            "stdout": print输出至文件xxx.stdout；
-            "stderr": print输出至文件xxx.stderr；
+            "logging_console": logging打印日志输出到控制台；
+            "logging_file": logging打印日志保存至文件xxx.log；
+            "std_console": print打印日志输出到控制台；
+            "std_file": print输出至文件xxx.stdout或xxx.stderr；
         :return:
         """
         LoggingConfigurator.global_log_prefix = log_prefix
@@ -172,30 +195,38 @@ class LoggingConfigurator(object):
         LoggingConfigurator.global_logging_formatter = logging_formatter
         LoggingConfigurator.global_std_log_formatter = std_log_formatter
 
+        LoggingConfigurator.__reset()
+
+        # 初始化标准输出拦截器
+        LoggingConfigurator.global_stdout_interceptor = StdStreamInterceptor()
+        LoggingConfigurator.global_stderr_interceptor = StdStreamInterceptor()
+
+        # 保存原始输出流，并赋值拦截器
         LoggingConfigurator.global_original_stdout = sys.stdout
         LoggingConfigurator.global_original_stderr = sys.stderr
 
-        LoggingConfigurator.reset("all")
+        sys.stdout = LoggingConfigurator.global_stdout_interceptor
+        sys.stderr = LoggingConfigurator.global_stderr_interceptor
 
-        if "console" in log_outputs:
-            LoggingConfigurator.__set_console_handler(log_level)
-        if "file" in log_outputs:
-            LoggingConfigurator.__set_logging_file_handler(log_level)
-        if "stdout" in log_outputs:
-            LoggingConfigurator.__set_stdout_file_handler(log_level)
-        if "stderr" in log_outputs:
-            LoggingConfigurator.__set_stderr_file_handler(log_level)
+        if "logging_console" in log_outputs:
+            LoggingConfigurator.__add_logging_console_handler(log_level)
+        if "logging_file" in log_outputs:
+            LoggingConfigurator.__add_logging_file_handler(log_level)
+        if "std_console" in log_outputs:
+            LoggingConfigurator.__add_std_console_handler(log_level)
+        if "std_file" in log_outputs:
+            LoggingConfigurator.__add_std_file_handler(log_level)
 
     @staticmethod
-    def __set_console_handler(level):
-        global_stream_handler = logging.StreamHandler()
+    def __add_logging_console_handler(level):
+        global_stream_handler = logging.StreamHandler(LoggingConfigurator.global_original_stderr)  # 直接输入到console
         global_stream_handler.setFormatter(logging.Formatter(LoggingConfigurator.global_logging_formatter))
         root_logger = logging.getLogger()
         root_logger.addHandler(global_stream_handler)
         root_logger.setLevel(level)
 
     @staticmethod
-    def __set_logging_file_handler(level):
+    def __add_logging_file_handler(level):
         LoggingConfigurator.global_logging_file_handler = DailyRotatingFileHandler(
             filename=f"{LoggingConfigurator.global_log_prefix}.log",
             log_dir=LoggingConfigurator.global_log_dir,
@@ -208,13 +239,18 @@ class LoggingConfigurator(object):
         root_logger.setLevel(level)
 
     @staticmethod
-    def __set_stdout_file_handler(level):
-        class Stdout2LoggingWrapper(StringIO):
-            def write(self, message):
-                LoggingConfigurator.global_original_stdout.write(message)
-                stdout_logger.info(message)
+    def __add_std_console_handler(level):
+        def notify_stdout(message):
+            LoggingConfigurator.global_original_stdout.write(message)
 
-        sys.stdout = Stdout2LoggingWrapper()
+        def notify_stderr(message):
+            LoggingConfigurator.global_original_stderr.write(message)
+
+        LoggingConfigurator.global_stdout_interceptor.subscribe("std_console", notify_stdout)
+        LoggingConfigurator.global_stderr_interceptor.subscribe("std_console", notify_stderr)
+
+    @staticmethod
+    def __add_std_file_handler(level):
         LoggingConfigurator.global_stdout_file_handler = DailyRotatingFileHandler(
             filename=f"{LoggingConfigurator.global_log_prefix}.stdout",
             log_dir=LoggingConfigurator.global_log_dir,
@@ -228,14 +264,6 @@ class LoggingConfigurator(object):
         stdout_logger.addHandler(LoggingConfigurator.global_stdout_file_handler)
         stdout_logger.setLevel(level)
 
-    @staticmethod
-    def __set_stderr_file_handler(level):
-        class Stderr2LoggingWrapper(StringIO):
-            def write(self, message):
-                LoggingConfigurator.global_original_stderr.write(message)
-                stderr_logger.error(message)
-
-        sys.stderr = Stderr2LoggingWrapper()
         LoggingConfigurator.global_stderr_file_handler = DailyRotatingFileHandler(
             filename=f"{LoggingConfigurator.global_log_prefix}.stderr",
             log_dir=LoggingConfigurator.global_log_dir,
@@ -249,62 +277,54 @@ class LoggingConfigurator(object):
         stderr_logger.addHandler(LoggingConfigurator.global_stderr_file_handler)
         stderr_logger.setLevel(level)
 
+        def notify_stdout(message):
+            if message and message != "\n":
+                message = message.replace('\n', '')
+                stdout_logger.info(message)
+
+        def notify_stderr(message):
+            if message and message != "\n":
+                # if message.endswith("\n"):
+                # message = message[:-len("\n")].rstrip()
+                message = message.replace('\n', '')
+                stderr_logger.error(message)
+
+        LoggingConfigurator.global_stdout_interceptor.subscribe("std_file", notify_stdout)
+        LoggingConfigurator.global_stderr_interceptor.subscribe("std_file", notify_stderr)
+
     @staticmethod
-    def __reset_console_handler():
+    def __remove_logging_console_handler():
         root_logger = logging.getLogger()
         root_logger.removeHandler(LoggingConfigurator.global_stream_handler)
 
     @staticmethod
-    def __reset_logging_file_handler():
+    def __remove_logging_file_handler():
         root_logger = logging.getLogger()
         root_logger.removeHandler(LoggingConfigurator.global_logging_file_handler)
 
     @staticmethod
-    def __reset_stdout_file_handler():
+    def __remove_std_console_handler():
+        if LoggingConfigurator.global_stdout_interceptor:
+            LoggingConfigurator.global_stdout_interceptor.unsubscribe("std_console")
+        if LoggingConfigurator.global_stderr_interceptor:
+            LoggingConfigurator.global_stderr_interceptor.unsubscribe("std_console")
+
+    @staticmethod
+    def __remove_std_file_handler():
         stdout_logger = logging.getLogger("stdout")
         stdout_logger.removeHandler(LoggingConfigurator.global_stdout_file_handler)
-        stdout_logger.propagate = True
-        sys.stdout = LoggingConfigurator.global_original_stdout
-
-    @staticmethod
-    def __reset_stderr_file_handler():
         stderr_logger = logging.getLogger("stderr")
         stderr_logger.removeHandler(LoggingConfigurator.global_stderr_file_handler)
-        stderr_logger.propagate = True
-        sys.stderr = LoggingConfigurator.global_original_stderr
 
     @staticmethod
-    def reset(*args):
-        if not args:
-            raise ValueError("参数为空")
-        if "console" in args:
-            LoggingConfigurator.__reset_console_handler()
-        if "file" in args:
-            LoggingConfigurator.__reset_logging_file_handler()
-        if "stdout" in args:
-            LoggingConfigurator.__reset_stdout_file_handler()
-        if "stderr" in args:
-            LoggingConfigurator.__reset_stderr_file_handler()
-        if "all" in args:
-            LoggingConfigurator.__reset_console_handler()
-            LoggingConfigurator.__reset_logging_file_handler()
-            LoggingConfigurator.__reset_stdout_file_handler()
-            LoggingConfigurator.__reset_stderr_file_handler()
+    def __reset():
+        LoggingConfigurator.__remove_logging_console_handler()
+        LoggingConfigurator.__remove_logging_file_handler()
+        LoggingConfigurator.__remove_std_console_handler()
+        LoggingConfigurator.__remove_std_file_handler()
 
-    @staticmethod
-    def set(*args, level):
-        if not args:
-            raise ValueError("参数为空")
-        if "console" in args:
-            LoggingConfigurator.__set_console_handler(level)
-        if "file" in args:
-            LoggingConfigurator.__set_logging_file_handler(level)
-        if "stdout" in args:
-            LoggingConfigurator.__set_stdout_file_handler(level)
-        if "stderr" in args:
-            LoggingConfigurator.__set_stderr_file_handler(level)
-        if "all" in args:
-            LoggingConfigurator.__set_console_handler(level)
-            LoggingConfigurator.__set_logging_file_handler(level)
-            LoggingConfigurator.__set_stdout_file_handler(level)
-            LoggingConfigurator.__set_stderr_file_handler(level)
+        # 重置
+        if LoggingConfigurator.global_original_stdout:
+            sys.stdout = LoggingConfigurator.global_original_stdout
+        if LoggingConfigurator.global_original_stderr:
+            sys.stderr = LoggingConfigurator.global_original_stderr
