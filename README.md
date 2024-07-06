@@ -3,6 +3,8 @@
 A non-intrusive, out-of-the-box, comprehensive, and flexible configuration tool class based on logging, which supports
 logging to console, file saving, redirecting stderr, stdout, daily folder splitting, and zip compression.
 
+<img width="581" alt="image" src="https://github.com/robinx2012/loggingx/assets/3340345/97d96503-9686-487b-b490-662719aa5c0c">
+
 # Feature
 
 1. 支持按天分目录保存，按小时分片；
